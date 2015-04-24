@@ -55,14 +55,16 @@ for(i in c(1:nrow(filesToLoad))){
   currentMaxSiteID = currentMaxSiteID + nrow(sites)
   
   allSites = allSites[unlist(sites.final$revmap)]
-  
-  pcrBreakpoints = data.frame("siteID"=as.integer(Rle(sites$siteID, sapply(sites.final$revmap, length))),
-                              "distToBreakpoint"=width(allSites))
-  
-  pcrBreakpoints = aggregate(list(count=rep(1,nrow(pcrBreakpoints))), pcrBreakpoints, length)
-  
-  
-  
+
+  #could do the next three statements with aggregate, but this method is emperically 2x faster
+  pcrBreakpoints = sort(paste0(as.integer(Rle(sites$siteID, sapply(sites.final$revmap, length))), ".", width(allSites)))
+    
+  condensedPCRBreakpoints = strsplit(unique(pcrBreakpoints), "\\.")
+      
+  pcrBreakpoints = data.frame("siteID" = sapply(condensedPCRBreakpoints, "[[", 1),
+                              "distToBreakpoint" = sapply(condensedPCRBreakpoints, "[[", 2),
+                              "counts" = runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
+    
   multihits = unlist(multihitData[[2]], use.names=F)
   
   if(length(multihits)>0){ #multihits could be empty though...
@@ -78,20 +80,12 @@ for(i in c(1:nrow(filesToLoad))){
   
   currentMaxSiteID = currentMaxSiteID + nrow(multihits)  
   
-  dbWriteTable(dbConn, "sites", rbind(sites, multihits), append=T, row.names=F)
+  #these are processed as transactions by RMySQL under the hood
+  dbWriteTable(dbConn, "sites", rbind(sites, multihits), append=T, row.names=F) 
   dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F)
   #is this^^^ safe or do I need to chunk it? Might be 1000's of rows for some samples
   
 }
 
-
-
-
-
 dbDiscon = dbDisconnect(dbConn)
   
-getUniqueSites
-getMRCs
-getMultihits
-getPCRbreaks
-setNameExists
