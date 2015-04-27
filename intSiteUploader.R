@@ -22,7 +22,9 @@ filesToLoad = system("ls */sites.final.RData", intern=T)
 filesToLoad = sapply(strsplit(filesToLoad, "/"), "[[" ,1)
 
 #this isn't pretty, but it does the job, especially since we're not going to be loading in tons of samples at once
-alreadyLoaded = dbGetQuery(dbConn, paste0("SELECT DISTINCT sampleName FROM samples WHERE sampleName IN (", paste0(dbQuoteString(dbConn, filesToLoad), collapse=","), ")"))
+alreadyLoaded = dbGetQuery(dbConn, paste0("SELECT DISTINCT sampleName
+                                           FROM samples
+                                           WHERE sampleName REGEXP ", dbQuoteString(dbConn, paste0(paste0("^", filesToLoad, "$"), collapse="|")), ";"))
 
 if(nrow(alreadyLoaded) > 0){
   stop(paste0("sets already exist in the database: ", paste(alreadyLoaded$sampleName, collapse=", ")))
@@ -38,7 +40,7 @@ dbWriteTable(dbConn, "samples", filesToLoad, append=T, row.names=F)
 #assumes at least one sample is loaded into the DB
 currentMaxSiteID = as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
 
-for(i in c(1:nrow(filesToLoad))){
+for(i in c(2:nrow(filesToLoad))){
   file = filesToLoad[i,"sampleName"]
   load(paste0(file, "/sites.final.RData"))
   load(paste0(file, "/allSites.RData"))
@@ -57,13 +59,14 @@ for(i in c(1:nrow(filesToLoad))){
   allSites = allSites[unlist(sites.final$revmap)]
 
   #could do the next three statements with aggregate, but this method is emperically 2x faster
-  pcrBreakpoints = sort(paste0(as.integer(Rle(sites$siteID, sapply(sites.final$revmap, length))), ".", width(allSites)))
-    
+  pcrBreakpoints = sort(paste0(as.integer(Rle(sites$siteID, sapply(sites.final$revmap, length))), ".", allSites$breakpoint))
+  #adjust to upload ONLY the breakpoint rather than the width
+  
   condensedPCRBreakpoints = strsplit(unique(pcrBreakpoints), "\\.")
       
   pcrBreakpoints = data.frame("siteID" = sapply(condensedPCRBreakpoints, "[[", 1),
-                              "distToBreakpoint" = sapply(condensedPCRBreakpoints, "[[", 2),
-                              "counts" = runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
+                              "breakpoint" = sapply(condensedPCRBreakpoints, "[[", 2),
+                              "count" = runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
     
   multihits = unlist(multihitData[[2]], use.names=F)
   
