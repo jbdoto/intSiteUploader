@@ -7,9 +7,17 @@ workingDir = args[1]
 stopifnot(!is.na(workingDir))
 setwd(workingDir)
 
-indexPath = get(load("indexPath.RData")) #already in the working directory
-genomeName = strsplit(indexPath, ".2bit")[[1]][1]
-genomeName = strsplit(genomeName, "/")[[1]][length(strsplit(genomeName, "/")[[1]])]
+metadata = read.csv(paste0(getwd(), "/sampleInfo.csv"), stringsAsFactors=F)
+processingParams = read.csv(paste0(getwd(), "/processingParams.csv"), stringsAsFactors=F)
+
+stopifnot(nrow(metadata) == nrow(processingParams))
+
+metadata = merge(metadata, processingParams, "alias")
+
+metadata$gender[with(metadata, gender==F)] = "F"
+metadata$gender[with(metadata, gender=="m")] = "M"
+
+metadata = metadata[c("alias", "gender", "refGenome")]
 
 library("RMySQL") #also loads DBI
 all_cons <- dbListConnections(MySQL())
@@ -33,14 +41,15 @@ if(nrow(alreadyLoaded) > 0){
 #assumes at least one sample is loaded into the DB
 currentMaxSampleID = as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;")))
 
-filesToLoad = data.frame("sampleID"=seq(length(filesToLoad))+currentMaxSampleID, "sampleName"=filesToLoad, "refGenome"=genomeName)
+filesToLoad = data.frame("sampleID"=seq(length(filesToLoad))+currentMaxSampleID, "sampleName"=filesToLoad)
+filesToLoad = merge(filesToLoad, metadata, by.x="sampleName", by.y="alias")
 
 dbWriteTable(dbConn, "samples", filesToLoad, append=T, row.names=F)
 
-#assumes at least one sample is loaded into the DB
+#assumes at least one sample is already loaded into the DB
 currentMaxSiteID = as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
 
-for(i in c(2:nrow(filesToLoad))){
+for(i in c(1:nrow(filesToLoad))){
   file = filesToLoad[i,"sampleName"]
   load(paste0(file, "/sites.final.RData"))
   load(paste0(file, "/allSites.RData"))
