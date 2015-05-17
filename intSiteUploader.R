@@ -49,7 +49,7 @@ dbWriteTable(dbConn, "samples", filesToLoad, append=T, row.names=F)
 #assumes at least one sample is already loaded into the DB
 currentMaxSiteID = as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
 
-for(i in c(1:nrow(filesToLoad))){
+for(i in seq(nrow(filesToLoad))){
   file = filesToLoad[i,"sampleName"]
   load(paste0(file, "/sites.final.RData"))
   load(paste0(file, "/allSites.RData"))
@@ -65,11 +65,14 @@ for(i in c(1:nrow(filesToLoad))){
   
   currentMaxSiteID = currentMaxSiteID + nrow(sites)
   
+  #Newer versions of intSiteCaller return allSites in the order dictated by
+  #sites.final.  This line allows import of 'legacy' output
   allSites = allSites[unlist(sites.final$revmap)]
 
   #could do the next three statements with aggregate, but this method is emperically 2x faster
-  pcrBreakpoints = sort(paste0(as.integer(Rle(sites$siteID, sapply(sites.final$revmap, length))), ".", allSites$breakpoint))
-  #adjust to upload ONLY the breakpoint rather than the width
+  pcrBreakpoints = sort(paste0(as.integer(Rle(sites$siteID, sapply(sites.final$revmap, length))),
+                               ".",
+                               start(flank(allSites, -1, start=F))))
   
   condensedPCRBreakpoints = strsplit(unique(pcrBreakpoints), "\\.")
       
