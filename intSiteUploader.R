@@ -58,7 +58,7 @@ for(i in seq(nrow(filesToLoad))){
   #sites.final won't exist if there aren't sites, thus no need to check if sites.final has sites in it
   sites = data.frame("sampleID"=filesToLoad[i,"sampleID"],
                      "siteID" = seq(length(sites.final))+currentMaxSiteID,
-                     "position"=sites.final$intLoc,
+                     "position"=start(flank(sites.final, -1, start=T)),
                      "chr"=as.character(seqnames(sites.final)),
                      "strand"=as.character(strand(sites.final)),
                      "multihitID"=NA)
