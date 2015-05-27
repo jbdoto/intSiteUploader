@@ -1,14 +1,32 @@
+#check for presence of R packages
+rPackages <- c("stats", "RMySQL")
+rPackagesPresent <- is.element(rPackages, installed.packages()[,1])
+if(any(!rPackagesPresent)){
+  stop(paste(rPackages[!rPackagesPresent]), " is not available")
+}
+
 library("stats")
+library("RMySQL")
+
+#check for presence of command line stuff
+commandLinePrograms <- c("mysql")
+programsPresent <- !sapply(sprintf("which %s > /dev/null 2>&1", commandLinePrograms), system)
+if(any(!programsPresent)){
+  stop(paste(commandLinePrograms[!programsPresent]), " is not available")
+}
 
 #working directory (i.e. primary analysis directory) is passed in via command line
 
 args <- commandArgs(trailingOnly = TRUE)
 workingDir = args[1]
 stopifnot(!is.na(workingDir))
+stopifnot(dir.exists(workingDir))
 setwd(workingDir)
 
-metadata = read.csv(paste0(getwd(), "/sampleInfo.csv"), stringsAsFactors=F)
-processingParams = read.csv(paste0(getwd(), "/processingParams.csv"), stringsAsFactors=F)
+stopifnot(file.exists("sampleInfo.csv") & file.exists("processingParams.csv"))
+
+metadata = read.csv("sampleInfo.csv", stringsAsFactors=F)
+processingParams = read.csv("processingParams.csv", stringsAsFactors=F)
 
 stopifnot(nrow(metadata) == nrow(processingParams))
 
@@ -19,12 +37,12 @@ metadata$gender[with(metadata, gender=="m")] = "M"
 
 metadata = metadata[c("alias", "gender", "refGenome")]
 
-library("RMySQL") #also loads DBI
 all_cons <- dbListConnections(MySQL())
 for (con in all_cons) {
   discCon <- dbDisconnect(con)
 }
-dbConn = dbConnect(MySQL(), group="intSitesDEV-dev") #~/.my.cnf must be present 
+stopifnot(file.exists("~/.my.cnf"))
+dbConn = dbConnect(MySQL(), group="intSitesDev") #~/.my.cnf must be present
 
 filesToLoad = system("ls */sites.final.RData", intern=T)
 filesToLoad = sapply(strsplit(filesToLoad, "/"), "[[" ,1)
