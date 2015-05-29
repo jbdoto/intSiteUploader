@@ -1,4 +1,4 @@
--- MySQL dump 10.13  Distrib 5.5.41, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.5.43, for debian-linux-gnu (x86_64)
 --
 -- Host: microb98.med.upenn.edu    Database: intsitesdev
 -- ------------------------------------------------------
@@ -14,6 +14,39 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `multihitlengths`
+--
+
+DROP TABLE IF EXISTS `multihitlengths`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `multihitlengths` (
+  `multihitID` int(11) unsigned NOT NULL,
+  `length` int(11) unsigned NOT NULL,
+  `count` int(8) unsigned NOT NULL DEFAULT '1',
+  PRIMARY KEY (`multihitID`,`length`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `multihitpositions`
+--
+
+DROP TABLE IF EXISTS `multihitpositions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `multihitpositions` (
+  `multihitID` int(11) unsigned NOT NULL,
+  `sampleID` int(11) unsigned NOT NULL,
+  `position` int(11) unsigned NOT NULL,
+  `chr` varchar(20) NOT NULL DEFAULT '',
+  `strand` char(1) NOT NULL DEFAULT '',
+  PRIMARY KEY (`multihitID`,`position`,`chr`,`strand`),
+  KEY `sampleID` (`sampleID`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `pcrbreakpoints`
@@ -60,7 +93,6 @@ CREATE TABLE `sites` (
   `position` int(11) unsigned NOT NULL,
   `chr` varchar(20) NOT NULL DEFAULT '',
   `strand` char(1) NOT NULL DEFAULT '',
-  `multihitID` varchar(25) DEFAULT NULL,
   PRIMARY KEY (`siteID`),
   KEY `sampleID` (`sampleID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -79,4 +111,4 @@ CREATE TABLE `sites` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2015-05-18 15:21:22
+-- Dump completed on 2015-05-29  5:07:32
