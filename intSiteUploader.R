@@ -44,7 +44,7 @@ for (con in all_cons) {
   discCon <- dbDisconnect(con)
 }
 stopifnot(file.exists("~/.my.cnf"))
-dbConn <- dbConnect(MySQL(), group="intSitesDev") #~/.my.cnf must be present
+dbConn <- dbConnect(MySQL(), group="intSitesDev237") #~/.my.cnf must be present
 
 #this isn't pretty, but it does the job, especially since we're not going to be loading in tons of samples at once
 alreadyLoaded <- dbGetQuery(dbConn, paste0("SELECT DISTINCT sampleName
