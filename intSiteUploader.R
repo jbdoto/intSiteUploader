@@ -69,6 +69,7 @@ if(is.na(currentMaxMultihitID)) currentMaxMultihitID<-0
 
 for(i in seq(nrow(metadata))){
     file <- metadata[i,"sampleName"]
+    message("Processing: ", file)
     if(file.exists(paste0(file, "/sites.final.RData"), paste0(file, "/allSites.RData"))){
         load(paste0(file, "/sites.final.RData"))
         load(paste0(file, "/allSites.RData"))
