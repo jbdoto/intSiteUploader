@@ -1,72 +1,77 @@
-#check for presence of R packages
-rPackages <- c("stats", "RMySQL")
+## check for presence of R packages
+rPackages <- c("stats", "RMySQL", "GenomicRanges", "BiocGenerics", "parallel")
 rPackagesPresent <- is.element(rPackages, installed.packages()[,1])
 if(any(!rPackagesPresent)){
-  stop(paste(rPackages[!rPackagesPresent]), " is not available")
+    stop(paste(rPackages[!rPackagesPresent]), " is not available")
 }
+stopifnot(sapply(rPackages, require, character.only=TRUE))
 
 library("stats")
 library("RMySQL")
 options(stringsAsFactors=F)
 
-#check for presence of command line stuff
+## check if file exist and permission .my.cnf 
+stopifnot(file.exists("~/.my.cnf"))
+stopifnot(file.info("~/.my.cnf")$mode == as.octmode("600"))
+
+
+##check for presence of command line stuff
 commandLinePrograms <- c("mysql")
 programsPresent <- !sapply(sprintf("which %s > /dev/null 2>&1", commandLinePrograms), system)
 if(any(!programsPresent)){
   stop(paste(commandLinePrograms[!programsPresent]), " is not available")
 }
 
-#working directory (i.e. primary analysis directory) is passed in via command line
-
+## working directory (i.e. primary analysis directory) is passed in via command line
 args <- commandArgs(trailingOnly=TRUE)
 workingDir <- args[1]
+if( interactive() ) workingDir <- "."
 stopifnot(!is.na(workingDir))
-workingDir <- normalizePath(".", mustWork=TRUE)
+workingDir <- normalizePath(workingDir, mustWork=TRUE)
 setwd(workingDir)
+message("Changed to directory: ", workingDir)
 
-#can't rely on completeMetadata.RData as it may have been rm'd in cleanup
+## get sample information
 stopifnot(all(file.exists("sampleInfo.tsv", "processingParams.tsv")))
-
 metadata <- read.table("sampleInfo.tsv", header=TRUE, stringsAsFactors=F)
 processingParams <- read.table("processingParams.tsv", header=TRUE, stringsAsFactors=F)
 junk <- merge(metadata, processingParams)
 stopifnot(nrow(metadata) == nrow(junk))
 metadata <- junk
-
 metadata <- metadata[c("alias", "gender", "refGenome")]
 names(metadata) <- c("sampleName", "gender", "refGenome")
 
-all_cons <- dbListConnections(MySQL())
-for (con in all_cons) {
-  discCon <- dbDisconnect(con)
-}
-stopifnot(file.exists("~/.my.cnf"))
-dbConn <- dbConnect(MySQL(), group="intSitesDev237") #~/.my.cnf must be present
+## initialize connection to database
+## ~/.my.cnf must be present
+junk <- sapply(dbListConnections(MySQL()), dbDisconnect)
+dbConn <- dbConnect(MySQL(), group="intSitesDev237") 
 
-#this isn't pretty, but it does the job, especially since we're not going to be loading in tons of samples at once
-alreadyLoaded <- dbGetQuery(dbConn, paste0("SELECT DISTINCT sampleName
-                                           FROM samples
-                                           WHERE sampleName REGEXP ", dbQuoteString(dbConn, paste0(paste0("^", metadata$sampleName, "$"), collapse="|")), ";"))
+## stop if any sample is already loaded
+allSampleName <- dbGetQuery(dbConn, "SELECT DISTINCT sampleName FROM samples")
+is.loaded <- metadata$sampleName %in% allSampleName$sampleName
+if(any(is.loaded)) stop(
+    paste0("Sets already in the database: ",
+           paste(metadata$sampleName[is.loaded], collapse="\n")))
 
-if(nrow(alreadyLoaded) > 0){
-  stop(paste0("sets already exist in the database: ", paste(alreadyLoaded$sampleName, collapse=", ")))
-}
 
-#assumes at least one sample is loaded into the DB
+## Get max sampleID, and start from max+1
 currentMaxSampleID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;")))
 if(is.na(currentMaxSampleID)) currentMaxSampleID<-0
 
 metadata$sampleID <- seq(nrow(metadata))+currentMaxSampleID
 
+## load table samples
 stopifnot( dbWriteTable(dbConn, "samples", metadata, append=T, row.names=F) )
 
-#assumes at least one sample is already loaded into the DB
+## Get max siteID, and start from max+1
 currentMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
 if(is.na(currentMaxSiteID)) currentMaxSiteID<-0
 
+## Get max MultihitID, and start from max+1
 currentMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
 if(is.na(currentMaxMultihitID)) currentMaxMultihitID<-0
 
+## process by sample
 for(i in seq(nrow(metadata))){
     file <- metadata[i,"sampleName"]
     message("Processing: ", file)
@@ -82,7 +87,7 @@ for(i in seq(nrow(metadata))){
                                 "strand"=as.character(strand(sites.final)))
             
             currentMaxSiteID <- currentMaxSiteID + nrow(sites)
-
+            
             ##Newer versions of intSiteCaller return allSites in the order dictated by
             ##sites.final.  This line allows import of 'legacy' output
             allSites <- allSites[unlist(sites.final$revmap)]
@@ -98,7 +103,9 @@ for(i in seq(nrow(metadata))){
                                          "breakpoint"=sapply(condensedPCRBreakpoints, "[[", 2),
                                          "count"=runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
             
+            ## load table samples            
             stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
+            ## load table pcrbreakpoints
             stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
         }
     }
@@ -124,7 +131,9 @@ for(i in seq(nrow(metadata))){
             
             currentMaxMultihitID <- currentMaxMultihitID + length(multihitPositions)  
             
+            ## load table multihitpositions
             stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
+            ## load table multihitlengths
             stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
         }
     }
