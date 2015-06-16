@@ -17,15 +17,18 @@ primaryAnalysisDirectory
 │   ├── sites.final.RData
 │   ├── multihitData.RData
 │   └── allSites.RData
-├── processingParams.csv
-└── sampleInfo.csv
+├── processingParams.tsv
+└── sampleInfo.tsv
 ```
 
 There can be as few or as many samples as the user desires in the `primaryAnalysisDirectory`, so long as each sample is represented in both `processingParams.csv` and `sampleInfo.csv`.  See [intSiteCaller's Documentation](http://www.github.com/esherm/intSiteCaller) for a description of the values contained in these two metadata files. 
 
 ## Usage
 
-Uploading is started by running ```Rscript intSiteUploader.R <primaryAnalysisDir>```.
+Uploading is started by running 
+```
+Rscript path/to/intSiteUploader.R <primaryAnalysisDir>
+```
 
 **At this time, it is highly recommmended to only run one instance of `intSiteUploader` at a time in order to avoid primary key collisions.**  Uploading an entire MiSeq run should take less than 2 minutes, so this restriction should be functionally inconsequential.
 
