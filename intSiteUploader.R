@@ -25,7 +25,7 @@ if(any(!programsPresent)){
 ## working directory (i.e. primary analysis directory) is passed in via command line
 args <- commandArgs(trailingOnly=TRUE)
 workingDir <- args[1]
-if( interactive() ) workingDir <- "."
+if( interactive() | is.na(workingDir) ) workingDir <- "."
 stopifnot(!is.na(workingDir))
 workingDir <- normalizePath(workingDir, mustWork=TRUE)
 setwd(workingDir)
