@@ -102,9 +102,11 @@ for(i in seq(nrow(metadata))){
                                          "breakpoint"=sapply(condensedPCRBreakpoints, "[[", 2),
                                          "count"=runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
             
-            ## load table samples            
+            ## load table sites            
+            message("Loading sites:", nrow(sites), " entries")
             stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
             ## load table pcrbreakpoints
+            message("Loading pcrbreakpoints:", nrow(pcrBreakpoints), " entries")
             stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
         }
     }
@@ -131,8 +133,11 @@ for(i in seq(nrow(metadata))){
             currentMaxMultihitID <- currentMaxMultihitID + length(multihitPositions)  
             
             ## load table multihitpositions
+            message("Loading multihitpositions:", nrow(multihitPositions), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
+            
             ## load table multihitlengths
+            message("Loading multihitlengths:", nrow(multihitLengths), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
         }
     }
