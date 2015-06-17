@@ -32,13 +32,9 @@ setwd(workingDir)
 message("Changed to directory: ", workingDir)
 
 ## get sample information
-stopifnot(all(file.exists("sampleInfo.tsv", "processingParams.tsv")))
-metadata <- read.table("sampleInfo.tsv", header=TRUE, stringsAsFactors=F)
-processingParams <- read.table("processingParams.tsv", header=TRUE, stringsAsFactors=F)
-junk <- merge(metadata, processingParams)
-stopifnot(nrow(metadata) == nrow(junk))
-metadata <- junk
-metadata <- metadata[c("alias", "gender", "refGenome")]
+stopifnot(all(file.exists("sampleInfo.tsv", "completeMetadata.RData")))
+metadata <- get(load('completeMetadata.RData'))
+metadata <- subset(metadata, select=c("alias", "gender", "refGenome"))
 names(metadata) <- c("sampleName", "gender", "refGenome")
 
 ## initialize connection to database
@@ -49,10 +45,13 @@ dbConn <- dbConnect(MySQL(), group="intSitesDev237")
 ## stop if any sample is already loaded
 allSampleName <- dbGetQuery(dbConn, "SELECT DISTINCT sampleName FROM samples")
 is.loaded <- metadata$sampleName %in% allSampleName$sampleName
-if(any(is.loaded)) stop(
+if(any(is.loaded)) message(
     paste0("Sets already in the database: ",
            paste(metadata$sampleName[is.loaded], collapse="\n")))
 
+if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) stop("GTSP sample already loaded, delete from the database or leave them alone")
+
+metadata <- subset(metadata, !is.loaded)
 
 ## Get max sampleID, and start from max+1
 currentMaxSampleID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;")))
