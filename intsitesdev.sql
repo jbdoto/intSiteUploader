@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.43, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.1.73, for redhat-linux-gnu (x86_64)
 --
--- Host: microb98.med.upenn.edu    Database: intsitesdev
+-- Host: microb237.med.upenn.edu    Database: intsitesdevtest
 -- ------------------------------------------------------
--- Server version	5.5.5-10.0.15-MariaDB
+-- Server version	5.5.5-10.0.17-MariaDB
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -75,6 +75,7 @@ CREATE TABLE `samples` (
   `sampleName` varchar(255) NOT NULL DEFAULT '',
   `refGenome` varchar(10) NOT NULL DEFAULT '',
   `gender` char(1) NOT NULL DEFAULT '',
+  `miseqid` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`sampleID`),
   UNIQUE KEY `sampleName` (`sampleName`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -99,7 +100,7 @@ CREATE TABLE `sites` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping routines for database 'intsitesdev'
+-- Dumping routines for database 'intsitesdevtest'
 --
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -111,4 +112,4 @@ CREATE TABLE `sites` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2015-05-29  5:07:32
+-- Dump completed on 2015-06-19 12:39:12
