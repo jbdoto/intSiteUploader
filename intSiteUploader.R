@@ -113,6 +113,7 @@ for(i in seq(nrow(metadata))){
                 "chr"=as.character(seqnames(sites.final)),
                 "strand"=as.character(strand(sites.final)) )
             
+            ## change to the right class as database
             sites$siteID <- as(sites$siteID, "integer")
             sites$sampleID <- as(sites$sampleID, "integer")
             sites$position <- as(sites$position, "integer")
@@ -134,6 +135,11 @@ for(i in seq(nrow(metadata))){
                                          "breakpoint"=sapply(condensedPCRBreakpoints, "[[", 2),
                                          "count"=runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
             
+            ## change to the right class as database
+            pcrBreakpoints$siteID <- as(pcrBreakpoints$siteID, "integer")
+            pcrBreakpoints$breakpoint <- as(pcrBreakpoints$breakpoint, "integer")
+            pcrBreakpoints$count <- as(pcrBreakpoints$count, "integer")
+            
             ## load table sites            
             stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading sites: ", nrow(sites), " entries")
@@ -153,9 +159,8 @@ for(i in seq(nrow(metadata))){
             sites.from.db <- plyr::arrange(sites.from.db, siteID, sampleID, position, chr, strand)
             if(!identical(sites, sites.from.db)) {
                 save.image("debug.rdata")
-                stop("sites, sites.from.db not save")
+                stop("sites, sites.from.db not identical")
             }
-            stopifnot(identical(sites, sites.from.db))
             
             ## load table pcrbreakpoints
             stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
@@ -166,12 +171,16 @@ for(i in seq(nrow(metadata))){
                            range(sites$siteID)[1],
                            range(sites$siteID)[2])
             pcrbreakpoints.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            pcrbreakpoints.from.db$siteID <- as.character(pcrbreakpoints.from.db$siteID)
-            pcrbreakpoints.from.db$breakpoint <- as.character(pcrbreakpoints.from.db$breakpoint)
-            pcrbreakpoints.from.db$count <- as.integer(pcrbreakpoints.from.db$count)
+            pcrbreakpoints.from.db$siteID <- as(pcrbreakpoints.from.db$siteID, "integer")
+            pcrbreakpoints.from.db$breakpoint <- as(pcrbreakpoints.from.db$breakpoint, "integer")
+            pcrbreakpoints.from.db$count <- as(pcrbreakpoints.from.db$count, "integer")
+            
             pcrBreakpoints <- plyr::arrange(pcrBreakpoints, siteID, breakpoint, count)
             pcrbreakpoints.from.db <- plyr::arrange(pcrbreakpoints.from.db, siteID, breakpoint, count)
-            stopifnot(identical(pcrBreakpoints, pcrbreakpoints.from.db))
+            if(!identical(pcrBreakpoints, pcrbreakpoints.from.db)) {
+                save.image("debug.rdata")
+                stop("pcrBreakpoints, pcrbreakpoints.from.db not identical")
+            }
             
             newMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
             stopifnot(newMaxSiteID == currentMaxSiteID + nrow(sites))
@@ -194,12 +203,21 @@ for(i in seq(nrow(metadata))){
                 "chr"=as.character(seqnames(unlist(multihitPositions))),
                 "strand"=as.character(strand(unlist(multihitPositions))) )
             
+            multihitPositions$multihitID <- as(multihitPositions$multihitID, "integer")
+            multihitPositions$sampleID <- as(multihitPositions$sampleID, "integer")
+            multihitPositions$position <- as(multihitPositions$position, "integer")
+            multihitPositions$chr <- as(multihitPositions$chr, "character")
+            multihitPositions$strand <- as(multihitPositions$strand, "character")
+            
             multihitLengths <- data.frame(
                 "multihitID"=rep(seq(length(multihitLengths))+currentMaxMultihitID,
                     sapply(multihitLengths, nrow)),
                 "length"=as.integer(as.character(do.call(rbind, multihitLengths)$Var1)),
                 "count"=do.call(rbind, multihitLengths)$Freq )
             
+            multihitLengths$multihitID <- as(multihitLengths$multihitID, "integer")
+            multihitLengths$length <- as(multihitLengths$length, "integer")
+            multihitLengths$count <- as(multihitLengths$count, "integer")
             
             ## load table multihitpositions
             stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
@@ -210,17 +228,18 @@ for(i in seq(nrow(metadata))){
                            range(multihitPositions$multihitID)[1],
                            range(multihitPositions$multihitID)[2])
             multihitpositions.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            multihitpositions.from.db$multihitID <- as.integer(multihitpositions.from.db$multihitID)
-            multihitpositions.from.db$sampleID <- as.character(multihitpositions.from.db$sampleID)
-            multihitpositions.from.db$position <- as.integer(multihitpositions.from.db$position)
-            
-            multihitPositions$multihitID <- as.integer(multihitPositions$multihitID)
-            multihitPositions$sampleID <- as.character(multihitPositions$sampleID)
-            multihitPositions$position <- as.integer(multihitPositions$position)
+            multihitpositions.from.db$multihitID <- as(multihitpositions.from.db$multihitID, "integer")
+            multihitpositions.from.db$sampleID <- as(multihitpositions.from.db$sampleID, "integer")
+            multihitpositions.from.db$position <- as(multihitpositions.from.db$position, "integer")
+            multihitpositions.from.db$chr <- as(multihitpositions.from.db$chr, "character")
+            multihitpositions.from.db$strand <- as(multihitpositions.from.db$strand, "character")
             
             multihitpositions.from.db <- plyr::arrange(multihitpositions.from.db, multihitID,sampleID, position,chr,strand)
             multihitPositions <- plyr::arrange(multihitPositions, multihitID, sampleID,position,chr,strand)
-            stopifnot(identical(multihitPositions, multihitpositions.from.db))
+            if(!identical(multihitPositions, multihitpositions.from.db)) {
+                save.image("debug.rdata")
+                stop("multihitPositions, multihitpositions.from.db not identical")
+            }
             
             ## load table multihitlengths
             stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
@@ -231,18 +250,16 @@ for(i in seq(nrow(metadata))){
                            range(multihitPositions$multihitID)[1],
                            range(multihitPositions$multihitID)[2])
             multihitlengths.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            
-            multihitLengths$multihitID <- as.integer(multihitLengths$multihitID)
-            multihitLengths$length <- as.integer(multihitLengths$length)
-            multihitLengths$count <- as.integer(multihitLengths$count)
-            
-            multihitlengths.from.db$multihitID <- as.integer(multihitlengths.from.db$multihitID)
-            multihitlengths.from.db$length <- as.integer(multihitlengths.from.db$length)
-            multihitlengths.from.db$count <- as.integer(multihitlengths.from.db$count)
+            multihitlengths.from.db$multihitID <- as(multihitlengths.from.db$multihitID, "integer")
+            multihitlengths.from.db$length <- as(multihitlengths.from.db$length, "integer")
+            multihitlengths.from.db$count <- as(multihitlengths.from.db$count, "integer")
             
             multihitlengths.from.db <- plyr::arrange(multihitlengths.from.db, multihitID, length, count)
             multihitLengths <- plyr::arrange(multihitLengths, multihitID, length, count)
-            stopifnot(identical(multihitLengths, multihitlengths.from.db))
+            if(!identical(multihitLengths, multihitlengths.from.db)) {
+                save.image("debug.rdata")
+                stop("multihitLengths, multihitlengths.from.db not identical")
+            }
             
             newMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
             stopifnot(newMaxMultihitID == currentMaxMultihitID + length(unique(multihitPositions$multihitID)))
