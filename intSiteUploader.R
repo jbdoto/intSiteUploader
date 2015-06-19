@@ -203,6 +203,7 @@ for(i in seq(nrow(metadata))){
                 "chr"=as.character(seqnames(unlist(multihitPositions))),
                 "strand"=as.character(strand(unlist(multihitPositions))) )
             
+            ## change to the right class as database
             multihitPositions$multihitID <- as(multihitPositions$multihitID, "integer")
             multihitPositions$sampleID <- as(multihitPositions$sampleID, "integer")
             multihitPositions$position <- as(multihitPositions$position, "integer")
@@ -215,6 +216,7 @@ for(i in seq(nrow(metadata))){
                 "length"=as.integer(as.character(do.call(rbind, multihitLengths)$Var1)),
                 "count"=do.call(rbind, multihitLengths)$Freq )
             
+            ## change to the right class as database
             multihitLengths$multihitID <- as(multihitLengths$multihitID, "integer")
             multihitLengths$length <- as(multihitLengths$length, "integer")
             multihitLengths$count <- as(multihitLengths$count, "integer")
