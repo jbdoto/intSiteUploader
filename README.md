@@ -58,3 +58,10 @@ database=intsitesdev
 
 `user` and `password` coorespond to the account you wish to use to log into the MySQL database.
 
+# Run identification
+
+To distinguish different runs we read
+run id from `myseqid.txt` that should be present in primary analysis folder.
+
+
+
