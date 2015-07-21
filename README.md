@@ -65,3 +65,10 @@ run id from `myseqid.txt` that should be present in primary analysis folder.
 
 
 
+## Testing 
+
+sqllite version of db can be created by:
+
+```
+sqlite3 db.sqlite3 < integration_site_schema.sql
+```
