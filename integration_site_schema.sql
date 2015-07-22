@@ -38,8 +38,7 @@ CREATE TABLE multihitpositions (
     position int NOT NULL,
     chr varchar(255) NOT NULL,
     strand char(1) NOT NULL,
-    PRIMARY KEY (multihitID),
-    CONSTRAINT uniq_multihitpositions UNIQUE (position, chr, strand),
+    PRIMARY KEY (multihitID, position, chr, strand),
     FOREIGN KEY (sampleID) REFERENCES samples(sampleID)
 );
 
