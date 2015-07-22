@@ -28,8 +28,10 @@ Code example:
 ```
 cd run20150505                                # a recent processed run folder
 Rscript path/to/intSiteUploader.R .
-Rscript intSiteUploader.R <primaryAnalysisDir>
+Rscript intSiteUploader.R <primaryAnalysisDir> [mysql_group]
 ```
+
+at present default group for `mysql_group` is `intSitesDev237`
 
 Note:
 * Run intSiteUploader.R only after running intSiteCaller,
