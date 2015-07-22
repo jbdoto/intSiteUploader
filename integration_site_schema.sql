@@ -5,7 +5,7 @@ CREATE TABLE samples (
     refGenome varchar(10) NOT NULL,
     gender char(1) NOT NULL,
     runId varchar(255),
-    PRIMARY KEY (sampleID)
+    PRIMARY KEY (sampleID),
     CONSTRAINT uniq_samples UNIQUE (sampleName, refGenome)
 );
 
