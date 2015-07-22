@@ -1,5 +1,5 @@
 ## check for presence of R packages
-rPackages <- c("stats", "RMySQL", "GenomicRanges", "BiocGenerics", "parallel", "IRanges", "GenomeInfoDb")
+rPackages <- c("intSiteRetriever", "stats", "RMySQL", "GenomicRanges", "BiocGenerics", "parallel", "IRanges", "GenomeInfoDb")
 rPackagesPresent <- is.element(rPackages, installed.packages()[,1])
 if(any(!rPackagesPresent)){
     stop(paste(rPackages[!rPackagesPresent]), " is not available")
@@ -23,6 +23,10 @@ if(any(!programsPresent)){
 ## working directory (i.e. primary analysis directory) is passed in via command line
 args <- commandArgs(trailingOnly=TRUE)
 workingDir <- args[1]
+mysql_group <- "intSitesDev237"
+if ( ! is.na(args[2])) {
+    mysql_group <- args[2]
+} 
 if( interactive() | is.na(workingDir) ) workingDir <- "."
 stopifnot(!is.na(workingDir))
 workingDir <- normalizePath(workingDir, mustWork=TRUE)
@@ -35,30 +39,29 @@ stopifnot(length(miseqid)==1)
 message("miseqid: ", miseqid)
 
 ## get sample information
-stopifnot(all(file.exists("sampleInfo.tsv", "completeMetadata.RData")))
-metadata <- get(load('completeMetadata.RData'))
-metadata <- subset(metadata, select=c("alias", "gender", "refGenome"))
+stopifnot(file.exists("sampleInfo.tsv")
+metadata <- read.delim("sampleInfo.tsv", stringsAsFactors=FALSE)
 names(metadata) <- c("sampleName", "gender", "refGenome")
 
 ## initialize connection to database
 ## ~/.my.cnf must be present
-junk <- sapply(dbListConnections(MySQL()), dbDisconnect)
-dbConn <- dbConnect(MySQL(), group="intSitesDev237") 
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
+dbConn <- dbConnect(MySQL(), group=mysql_group) 
 
 ## stop if any sample is already loaded
-allSampleName <- dbGetQuery(dbConn, "SELECT DISTINCT sampleName FROM samples")
-is.loaded <- metadata$sampleName %in% allSampleName$sampleName
+is.loaded <- setNameExists(select(metadata, "sampleName", "refGenome"))
 if(any(is.loaded)) message(
     paste0("Sets already in the database: ",
-           paste(metadata$sampleName[is.loaded], collapse="\n")))
+           paste(metadata[is.loaded, ], collapse="\n")))
 
-if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) stop("GTSP sample already loaded, delete from the database or leave them alone")
+if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) {
+    stop("GTSP sample already loaded, delete from the database or leave them alone")
+}
 
-metadata <- subset(metadata, !is.loaded)
+metadata <- subset(metadata, ! is.loaded)
+
+stop("dev stops here!")
 
 ## Get max sampleID, and start from max+1
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
 currentMaxSampleID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;")))
 if(is.na(currentMaxSampleID)) {
     nrows <- as.integer(dbGetQuery(dbConn, "SELECT count(*) FROM samples;"))
@@ -69,7 +72,6 @@ if(is.na(currentMaxSampleID)) {
 ## load table samples
 metadata$sampleID <- seq(nrow(metadata))+currentMaxSampleID
 metadata$miseqid <- miseqid
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
 stopifnot( dbWriteTable(dbConn, "samples", metadata, append=T, row.names=F) )
 ## check wether load was successful
 sample.tab <- suppressWarnings(dbReadTable(dbConn, "samples"))
@@ -80,7 +82,6 @@ if( !all(merged.tab$sampleID.x==merged.tab$sampleID.y) ) {
 }
 
 ## Get max siteID, and start from max+1
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
 currentMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
 if(is.na(currentMaxSiteID)) { 
     nrows <- as.integer(dbGetQuery(dbConn, "SELECT count(*) FROM sites;"))
@@ -89,7 +90,6 @@ if(is.na(currentMaxSiteID)) {
 }
 
 ## Get max MultihitID, and start from max+1
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
 currentMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
 if(is.na(currentMaxMultihitID)) {
     nrows <- as.integer(dbGetQuery(dbConn, "SELECT count(*) FROM multihitpositions;"))
@@ -141,7 +141,6 @@ for(i in seq(nrow(metadata))){
             pcrBreakpoints$count <- as(pcrBreakpoints$count, "integer")
             
             ## load table sites            
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading sites: ", nrow(sites), " entries")
             stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
             ## check loaded sites
@@ -163,7 +162,6 @@ for(i in seq(nrow(metadata))){
             }
             
             ## load table pcrbreakpoints
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading pcrbreakpoints: ", nrow(pcrBreakpoints), " entries")
             stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
             ## check loaded pcrbreakpoints
@@ -222,7 +220,6 @@ for(i in seq(nrow(metadata))){
             multihitLengths$count <- as(multihitLengths$count, "integer")
             
             ## load table multihitpositions
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading multihitpositions:", nrow(multihitPositions), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
             ## check loaded multihitpositions
@@ -244,7 +241,6 @@ for(i in seq(nrow(metadata))){
             }
             
             ## load table multihitlengths
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading multihitlengths: ", nrow(multihitLengths), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
             ## check loaded multihitlengths
