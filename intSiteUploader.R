@@ -121,45 +121,11 @@ for(i in seq(nrow(metadata))){
             ## load table sites            
             message("Loading sites: ", nrow(sites), " entries")
             stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
-
-#            ## check loaded sites
-#            sql <- sprintf("SELECT * FROM sites WHERE siteID>=%s AND siteID<=%s",
-#                           range(sites$siteID)[1],
-#                           range(sites$siteID)[2])
-#            sites.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-#            sites.from.db$siteID <- as(sites.from.db$siteID, "integer")
-#            sites.from.db$sampleID <- as(sites.from.db$sampleID, "integer")
-#            sites.from.db$position <- as(sites.from.db$position, "integer")
-#            sites.from.db$chr <- as(sites.from.db$chr, "character")
-#            sites.from.db$strand <- as(sites.from.db$strand, "character")
-#            
-#            sites <- plyr::arrange(sites, siteID, sampleID, position, chr, strand)
-#            sites.from.db <- plyr::arrange(sites.from.db, siteID, sampleID, position, chr, strand)
-#            if(!identical(sites, sites.from.db)) {
-#                save.image("debug.rdata")
-#                stop("sites, sites.from.db not identical")
-#            }
             
             ## load table pcrbreakpoints
             message("Loading pcrbreakpoints: ", nrow(pcrBreakpoints), " entries")
             stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
-#            ## check loaded pcrbreakpoints
-#            sql <- sprintf("SELECT * FROM pcrbreakpoints WHERE siteID>=%s AND siteID<=%s",
-#                           range(sites$siteID)[1],
-#                           range(sites$siteID)[2])
-#            pcrbreakpoints.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-#            pcrbreakpoints.from.db$siteID <- as(pcrbreakpoints.from.db$siteID, "integer")
-#            pcrbreakpoints.from.db$breakpoint <- as(pcrbreakpoints.from.db$breakpoint, "integer")
-#            pcrbreakpoints.from.db$count <- as(pcrbreakpoints.from.db$count, "integer")
-#            
-#            pcrBreakpoints <- plyr::arrange(pcrBreakpoints, siteID, breakpoint, count)
-#            pcrbreakpoints.from.db <- plyr::arrange(pcrbreakpoints.from.db, siteID, breakpoint, count)
-#            if(!identical(pcrBreakpoints, pcrbreakpoints.from.db)) {
-#                save.image("debug.rdata")
-#                stop("pcrBreakpoints, pcrbreakpoints.from.db not identical")
-#            }
             
-            # newMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
             stopifnot(newMaxSiteID == currentMaxSiteID + nrow(sites))
             currentMaxSiteID <- newMaxSiteID
         }
@@ -201,44 +167,10 @@ for(i in seq(nrow(metadata))){
             ## load table multihitpositions
             message("Loading multihitpositions:", nrow(multihitPositions), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
-#            ## check loaded multihitpositions
-#            sql <- sprintf("SELECT * FROM multihitpositions WHERE multihitID>=%s AND multihitID<=%s",
-#                           range(multihitPositions$multihitID)[1],
-#                           range(multihitPositions$multihitID)[2])
-#            multihitpositions.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-#            multihitpositions.from.db$multihitID <- as(multihitpositions.from.db$multihitID, "integer")
-#            multihitpositions.from.db$sampleID <- as(multihitpositions.from.db$sampleID, "integer")
-#            multihitpositions.from.db$position <- as(multihitpositions.from.db$position, "integer")
-#            multihitpositions.from.db$chr <- as(multihitpositions.from.db$chr, "character")
-#            multihitpositions.from.db$strand <- as(multihitpositions.from.db$strand, "character")
-#            
-#            multihitpositions.from.db <- plyr::arrange(multihitpositions.from.db, multihitID,sampleID, position,chr,strand)
-#            multihitPositions <- plyr::arrange(multihitPositions, multihitID, sampleID,position,chr,strand)
-#            if(!identical(multihitPositions, multihitpositions.from.db)) {
-#                save.image("debug.rdata")
-#                stop("multihitPositions, multihitpositions.from.db not identical")
-#            }
             
             ## load table multihitlengths
             message("Loading multihitlengths: ", nrow(multihitLengths), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
-#            ## check loaded multihitlengths
-#            sql <- sprintf("SELECT * FROM multihitlengths WHERE multihitID>=%s AND multihitID<=%s",
-#                           range(multihitPositions$multihitID)[1],
-#                           range(multihitPositions$multihitID)[2])
-#            multihitlengths.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-#            multihitlengths.from.db$multihitID <- as(multihitlengths.from.db$multihitID, "integer")
-#            multihitlengths.from.db$length <- as(multihitlengths.from.db$length, "integer")
-#            multihitlengths.from.db$count <- as(multihitlengths.from.db$count, "integer")
-#            
-#            multihitlengths.from.db <- plyr::arrange(multihitlengths.from.db, multihitID, length, count)
-#            multihitLengths <- plyr::arrange(multihitLengths, multihitID, length, count)
-#            if(!identical(multihitLengths, multihitlengths.from.db)) {
-#                save.image("debug.rdata")
-#                stop("multihitLengths, multihitlengths.from.db not identical")
-#            }
-            
-            # newMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
             stopifnot(newMaxMultihitID == currentMaxMultihitID + length(unique(multihitPositions$multihitID)))
             currentMaxMultihitID <- newMaxMultihitID  
         }
