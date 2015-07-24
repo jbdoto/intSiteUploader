@@ -159,7 +159,7 @@ for(i in seq(nrow(metadata))){
 #                stop("pcrBreakpoints, pcrbreakpoints.from.db not identical")
 #            }
             
-            newMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
+            # newMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
             stopifnot(newMaxSiteID == currentMaxSiteID + nrow(sites))
             currentMaxSiteID <- newMaxSiteID
         }
@@ -238,7 +238,7 @@ for(i in seq(nrow(metadata))){
 #                stop("multihitLengths, multihitlengths.from.db not identical")
 #            }
             
-            newMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
+            # newMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
             stopifnot(newMaxMultihitID == currentMaxMultihitID + length(unique(multihitPositions$multihitID)))
             currentMaxMultihitID <- newMaxMultihitID  
         }
