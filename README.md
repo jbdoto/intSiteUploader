@@ -17,11 +17,15 @@ primaryAnalysisDirectory
 │   ├── sites.final.RData
 │   ├── multihitData.RData
 │   └── allSites.RData
-├── processingParams.tsv
-└── sampleInfo.tsv
+├─miseqid.txt
+└─completeMetadata.Rdata
 ```
 
-There can be as few or as many samples as the user desires in the `primaryAnalysisDirectory`, so long as each sample is represented in both `processingParams.csv` and `sampleInfo.csv`.  See [intSiteCaller's Documentation](http://www.github.com/esherm/intSiteCaller) for a description of the values contained in these two metadata files. 
+There can be as few or as many samples as the user desires in the
+`primaryAnalysisDirectory`, so long as each sample is represented in `completeMetadata.Rdata`
+.  See [intSiteCaller's
+Documentation](http://www.github.com/esherm/intSiteCaller) for a description of
+the values contained in these two metadata files. 
 
 ## Usage
 Code example:

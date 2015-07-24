@@ -1,16 +1,21 @@
+-- drop tables with FK constraints
+DROP TABLE IF EXISTS pcrbreakpoints;
+DROP TABLE IF EXISTS sites;
+DROP TABLE IF EXISTS multihitlengths;
+DROP TABLE IF EXISTS multihitpositions;
 DROP TABLE IF EXISTS samples;
+
 CREATE TABLE samples (
     sampleID int NOT NULL,
     sampleName varchar(255) NOT NULL,
     refGenome varchar(10) NOT NULL,
     gender char(1) NOT NULL,
-    runId varchar(255),
+    miseqid varchar(255),
     PRIMARY KEY (sampleID),
     CONSTRAINT uniq_samples UNIQUE (sampleName, refGenome)
 );
 
 -- unique hits
-DROP TABLE IF EXISTS sites;
 CREATE TABLE sites (
     siteID int NOT NULL,
     sampleID int NOT NULL,
@@ -21,7 +26,6 @@ CREATE TABLE sites (
     FOREIGN KEY (sampleID) REFERENCES samples(sampleID)
 );
 
-DROP TABLE IF EXISTS pcrbreakpoints;
 CREATE TABLE `pcrbreakpoints` (
     siteID int NOT NULL,
     breakpoint int NOT NULL,
@@ -31,7 +35,6 @@ CREATE TABLE `pcrbreakpoints` (
 );
 
 -- multihit schema 
-DROP TABLE IF EXISTS multihitpositions;
 CREATE TABLE multihitpositions (
     multihitID int NOT NULL,
     sampleID int NOT NULL,
@@ -42,7 +45,6 @@ CREATE TABLE multihitpositions (
     FOREIGN KEY (sampleID) REFERENCES samples(sampleID)
 );
 
-DROP TABLE IF EXISTS multihitlengths;
 CREATE TABLE multihitlengths (
     multihitID int NOT NULL,
     length int NOT NULL,
