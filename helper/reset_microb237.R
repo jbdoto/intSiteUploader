@@ -20,7 +20,7 @@ cmd <- sprintf("mysql --defaults-file=%s -e 'CREATE DATABASE IF NOT EXISTS intsi
 message(cmd)
 stopifnot( system(cmd)==0 )
 
-cmd <- sprintf("mysql --defaults-file=%s intsitesdevtest < %s/intsitesdev.sql", test_db_cnf, codeDir)
+cmd <- sprintf("mysql --defaults-file=%s intsitesdevtest < %s/integration_site_schema.sql", test_db_cnf, codeDir)
 message(cmd)
 stopifnot( system(cmd)==0 )
 
