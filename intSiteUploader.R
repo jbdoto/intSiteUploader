@@ -1,8 +1,10 @@
-library(RMySQL, quietly=TRUE)
-library(dplyr, quietly=TRUE)
+library(RMySQL, quietly=TRUE, verbose=FALSE)
+library(dplyr, quietly=TRUE, verbose=FALSE)
 
-source("utils.R")
-source("load_tables.R")
+script_dir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
+
+source(file.path(script_dir, "utils.R"))
+source(file.path(script_dir, "load_tables.R"))
 
 check_presence_packages()
 options(stringsAsFactors=F)
@@ -126,7 +128,7 @@ for(i in seq(nrow(metadata))){
             message("Loading pcrbreakpoints: ", nrow(pcrBreakpoints), " entries")
             stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
             
-            stopifnot(newMaxSiteID == currentMaxSiteID + nrow(sites))
+            newMaxSiteID = currentMaxSiteID + nrow(sites)
             currentMaxSiteID <- newMaxSiteID
         }
     }
@@ -171,7 +173,7 @@ for(i in seq(nrow(metadata))){
             ## load table multihitlengths
             message("Loading multihitlengths: ", nrow(multihitLengths), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
-            stopifnot(newMaxMultihitID == currentMaxMultihitID + length(unique(multihitPositions$multihitID)))
+            newMaxMultihitID = currentMaxMultihitID + length(unique(multihitPositions$multihitID))
             currentMaxMultihitID <- newMaxMultihitID  
         }
     }
