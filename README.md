@@ -4,7 +4,7 @@
 
 
 ## Introduction
-This code is designed to upload integration sites, PCR breakpoints, and multihits identified by `intSiteCaller` and upload them to the intsitesdev database.  The database is currently located at `microbxxx.med.upenn.edu:3306` and is described by the included schema, `insitesdev.sql`.
+This code is designed to upload integration sites, PCR breakpoints, and multihits identified by `intSiteCaller` and upload them to the intsitesdev database.  The database is currently located at `microbxxx.med.upenn.edu:3306` and is described by the included schema, `integration_site_schema.sql`.
 
 
 ## Inputs
@@ -31,7 +31,7 @@ the values contained in these two metadata files.
 Code example:
 ```
 cd run20150505                                # a recent processed run folder
-Rscript path/to/intSiteUploader.R .
+Rscript path/to/intSiteUploader.R
 Rscript intSiteUploader.R <primaryAnalysisDir> [mysql_group]
 ```
 
