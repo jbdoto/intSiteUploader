@@ -1,10 +1,10 @@
 library(RMySQL, quietly=TRUE, verbose=FALSE)
 library(dplyr, quietly=TRUE, verbose=FALSE)
 
-script_dir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
+codeDir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
 
-source(file.path(script_dir, "utils.R"))
-source(file.path(script_dir, "load_tables.R"))
+source(file.path(codeDir, "utils.R"))
+source(file.path(codeDir, "load_tables.R"))
 
 check_presence_packages()
 options(stringsAsFactors=F)
@@ -19,7 +19,7 @@ check_presence_command_line_tools()
 # and group for MySQL server
 args <- commandArgs(trailingOnly=TRUE)
 workingDir <- args[1]
-mysql_group <- "intSitesDev237"
+mysql_group <- "intsites_miseq"
 if ( ! is.na(args[2])) {
     mysql_group <- args[2]
 } 
