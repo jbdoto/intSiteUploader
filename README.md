@@ -4,7 +4,7 @@
 
 
 ## Introduction
-This code is designed to upload integration sites, PCR breakpoints, and multihits identified by `intSiteCaller` and upload them to the intsitesdev database.  The database is currently located at `microbxxx.med.upenn.edu:3306` and is described by the included schema, `insitesdev.sql`.
+This code is designed to upload integration sites, PCR breakpoints, and multihits identified by `intSiteCaller` and upload them to the intsitesdev database.  The database is currently located at `microbxxx.med.upenn.edu:3306` and is described by the included schema, `integration_site_schema.sql`.
 
 
 ## Inputs
@@ -17,19 +17,25 @@ primaryAnalysisDirectory
 │   ├── sites.final.RData
 │   ├── multihitData.RData
 │   └── allSites.RData
-├── processingParams.tsv
-└── sampleInfo.tsv
+├─miseqid.txt
+└─completeMetadata.Rdata
 ```
 
-There can be as few or as many samples as the user desires in the `primaryAnalysisDirectory`, so long as each sample is represented in both `processingParams.csv` and `sampleInfo.csv`.  See [intSiteCaller's Documentation](http://www.github.com/esherm/intSiteCaller) for a description of the values contained in these two metadata files. 
+There can be as few or as many samples as the user desires in the
+`primaryAnalysisDirectory`, so long as each sample is represented in `completeMetadata.Rdata`
+.  See [intSiteCaller's
+Documentation](http://www.github.com/esherm/intSiteCaller) for a description of
+the values contained in these two metadata files. 
 
 ## Usage
 Code example:
 ```
 cd run20150505                                # a recent processed run folder
-Rscript path/to/intSiteUploader.R .
-Rscript intSiteUploader.R <primaryAnalysisDir>
+Rscript path/to/intSiteUploader.R
+Rscript intSiteUploader.R <primaryAnalysisDir> [mysql_group]
 ```
+
+at present default group for `mysql_group` is `intSitesDev237`
 
 Note:
 * Run intSiteUploader.R only after running intSiteCaller,
@@ -65,3 +71,10 @@ run id from `myseqid.txt` that should be present in primary analysis folder.
 
 
 
+## Testing 
+
+sqllite version of db can be created by:
+
+```
+sqlite3 db.sqlite3 < integration_site_schema.sql
+```

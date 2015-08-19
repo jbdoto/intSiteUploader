@@ -1,28 +1,28 @@
-## check for presence of R packages
-rPackages <- c("stats", "RMySQL", "GenomicRanges", "BiocGenerics", "parallel", "IRanges", "GenomeInfoDb")
-rPackagesPresent <- is.element(rPackages, installed.packages()[,1])
-if(any(!rPackagesPresent)){
-    stop(paste(rPackages[!rPackagesPresent]), " is not available")
-}
-stopifnot(sapply(rPackages, require, character.only=TRUE, quietly=TRUE, warn.conflicts=FALSE))
+library(RMySQL, quietly=TRUE, verbose=FALSE)
+library(dplyr, quietly=TRUE, verbose=FALSE)
 
+codeDir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
+
+source(file.path(codeDir, "utils.R"))
+source(file.path(codeDir, "load_tables.R"))
+
+check_presence_packages()
 options(stringsAsFactors=F)
 
 ## check if file exist and permission .my.cnf 
 stopifnot(file.exists("~/.my.cnf"))
 stopifnot(file.info("~/.my.cnf")$mode == as.octmode("600"))
 
-
-##check for presence of command line stuff
-commandLinePrograms <- c("mysql")
-programsPresent <- !sapply(sprintf("which %s > /dev/null 2>&1", commandLinePrograms), system)
-if(any(!programsPresent)){
-  stop(paste(commandLinePrograms[!programsPresent]), " is not available")
-}
+check_presence_command_line_tools()
 
 ## working directory (i.e. primary analysis directory) is passed in via command line
+# and group for MySQL server
 args <- commandArgs(trailingOnly=TRUE)
 workingDir <- args[1]
+mysql_group <- "intsites_miseq"
+if ( ! is.na(args[2])) {
+    mysql_group <- args[2]
+} 
 if( interactive() | is.na(workingDir) ) workingDir <- "."
 stopifnot(!is.na(workingDir))
 workingDir <- normalizePath(workingDir, mustWork=TRUE)
@@ -35,69 +35,49 @@ stopifnot(length(miseqid)==1)
 message("miseqid: ", miseqid)
 
 ## get sample information
-stopifnot(all(file.exists("sampleInfo.tsv", "completeMetadata.RData")))
+stopifnot(file.exists("completeMetadata.RData"))
 metadata <- get(load('completeMetadata.RData'))
 metadata <- subset(metadata, select=c("alias", "gender", "refGenome"))
 names(metadata) <- c("sampleName", "gender", "refGenome")
 
 ## initialize connection to database
 ## ~/.my.cnf must be present
-junk <- sapply(dbListConnections(MySQL()), dbDisconnect)
-dbConn <- dbConnect(MySQL(), group="intSitesDev237") 
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
+dbConn <- dbConnect(MySQL(), group=mysql_group) 
 
 ## stop if any sample is already loaded
-allSampleName <- dbGetQuery(dbConn, "SELECT DISTINCT sampleName FROM samples")
-is.loaded <- metadata$sampleName %in% allSampleName$sampleName
+read_conn <- create_src_mysql(dbConn)
+is.loaded <- setNameExists(select(metadata, sampleName, refGenome), read_conn)
 if(any(is.loaded)) message(
     paste0("Sets already in the database: ",
-           paste(metadata$sampleName[is.loaded], collapse="\n")))
+           paste(metadata[is.loaded, ], collapse="\n")))
 
-if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) stop("GTSP sample already loaded, delete from the database or leave them alone")
-
-metadata <- subset(metadata, !is.loaded)
-
-## Get max sampleID, and start from max+1
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
-currentMaxSampleID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;")))
-if(is.na(currentMaxSampleID)) {
-    nrows <- as.integer(dbGetQuery(dbConn, "SELECT count(*) FROM samples;"))
-    if(nrows==0) currentMaxSampleID<-0
-    if(nrows!=0) stop("Failed to get currentMaxSampleID")
+if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) {
+    stop("GTSP sample already loaded, delete from the database or leave them alone")
 }
 
-## load table samples
-metadata$sampleID <- seq(nrow(metadata))+currentMaxSampleID
+metadata <- subset(metadata, ! is.loaded)
+if (nrow(metadata) == 0) {
+    message("All samples are already in the DB. Nothing is pushed into DB.")
+    q()
+}
 metadata$miseqid <- miseqid
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
-stopifnot( dbWriteTable(dbConn, "samples", metadata, append=T, row.names=F) )
-## check wether load was successful
-sample.tab <- suppressWarnings(dbReadTable(dbConn, "samples"))
-merged.tab <- merge(metadata, sample.tab, by="sampleName", all.x=TRUE)
-if( !all(merged.tab$sampleID.x==merged.tab$sampleID.y) ) {
-    message("Sample ID error, check the following table")
-    print(merged.tab)
-}
+
+dbGetQuery(dbConn, "START TRANSACTION;")
+metadata <- write_table_samples(dbConn, metadata)
 
 ## Get max siteID, and start from max+1
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
-currentMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
+currentMaxSiteID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;"))
 if(is.na(currentMaxSiteID)) { 
-    nrows <- as.integer(dbGetQuery(dbConn, "SELECT count(*) FROM sites;"))
-    if(nrows==0) currentMaxSiteID<-0
-    if(nrows!=0) stop("Failed to get currentMaxSiteID")
+    currentMaxSiteID<-0
 }
 
 ## Get max MultihitID, and start from max+1
-stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
-currentMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
+currentMaxMultihitID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;"))
 if(is.na(currentMaxMultihitID)) {
-    nrows <- as.integer(dbGetQuery(dbConn, "SELECT count(*) FROM multihitpositions;"))
-    if(nrows==0) currentMaxMultihitID<-0
-    if(nrows!=0) stop("Failed to get currentMaxSiteID")
+    currentMaxMultihitID<-0
 }
 
-## process by sample
+## process by sample and upload to sites, pcrbreakpoints, multihitpositions, multihitlengths
 for(i in seq(nrow(metadata))){
     file <- metadata[i,"sampleName"]
     message("\nProcessing: ", file)
@@ -141,49 +121,14 @@ for(i in seq(nrow(metadata))){
             pcrBreakpoints$count <- as(pcrBreakpoints$count, "integer")
             
             ## load table sites            
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading sites: ", nrow(sites), " entries")
             stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
-            ## check loaded sites
-            sql <- sprintf("SELECT * FROM sites WHERE siteID>=%s AND siteID<=%s",
-                           range(sites$siteID)[1],
-                           range(sites$siteID)[2])
-            sites.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            sites.from.db$siteID <- as(sites.from.db$siteID, "integer")
-            sites.from.db$sampleID <- as(sites.from.db$sampleID, "integer")
-            sites.from.db$position <- as(sites.from.db$position, "integer")
-            sites.from.db$chr <- as(sites.from.db$chr, "character")
-            sites.from.db$strand <- as(sites.from.db$strand, "character")
-            
-            sites <- plyr::arrange(sites, siteID, sampleID, position, chr, strand)
-            sites.from.db <- plyr::arrange(sites.from.db, siteID, sampleID, position, chr, strand)
-            if(!identical(sites, sites.from.db)) {
-                save.image("debug.rdata")
-                stop("sites, sites.from.db not identical")
-            }
             
             ## load table pcrbreakpoints
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading pcrbreakpoints: ", nrow(pcrBreakpoints), " entries")
             stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
-            ## check loaded pcrbreakpoints
-            sql <- sprintf("SELECT * FROM pcrbreakpoints WHERE siteID>=%s AND siteID<=%s",
-                           range(sites$siteID)[1],
-                           range(sites$siteID)[2])
-            pcrbreakpoints.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            pcrbreakpoints.from.db$siteID <- as(pcrbreakpoints.from.db$siteID, "integer")
-            pcrbreakpoints.from.db$breakpoint <- as(pcrbreakpoints.from.db$breakpoint, "integer")
-            pcrbreakpoints.from.db$count <- as(pcrbreakpoints.from.db$count, "integer")
             
-            pcrBreakpoints <- plyr::arrange(pcrBreakpoints, siteID, breakpoint, count)
-            pcrbreakpoints.from.db <- plyr::arrange(pcrbreakpoints.from.db, siteID, breakpoint, count)
-            if(!identical(pcrBreakpoints, pcrbreakpoints.from.db)) {
-                save.image("debug.rdata")
-                stop("pcrBreakpoints, pcrbreakpoints.from.db not identical")
-            }
-            
-            newMaxSiteID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;")))
-            stopifnot(newMaxSiteID == currentMaxSiteID + nrow(sites))
+            newMaxSiteID = currentMaxSiteID + nrow(sites)
             currentMaxSiteID <- newMaxSiteID
         }
     }
@@ -222,53 +167,21 @@ for(i in seq(nrow(metadata))){
             multihitLengths$count <- as(multihitLengths$count, "integer")
             
             ## load table multihitpositions
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading multihitpositions:", nrow(multihitPositions), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
-            ## check loaded multihitpositions
-            sql <- sprintf("SELECT * FROM multihitpositions WHERE multihitID>=%s AND multihitID<=%s",
-                           range(multihitPositions$multihitID)[1],
-                           range(multihitPositions$multihitID)[2])
-            multihitpositions.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            multihitpositions.from.db$multihitID <- as(multihitpositions.from.db$multihitID, "integer")
-            multihitpositions.from.db$sampleID <- as(multihitpositions.from.db$sampleID, "integer")
-            multihitpositions.from.db$position <- as(multihitpositions.from.db$position, "integer")
-            multihitpositions.from.db$chr <- as(multihitpositions.from.db$chr, "character")
-            multihitpositions.from.db$strand <- as(multihitpositions.from.db$strand, "character")
-            
-            multihitpositions.from.db <- plyr::arrange(multihitpositions.from.db, multihitID,sampleID, position,chr,strand)
-            multihitPositions <- plyr::arrange(multihitPositions, multihitID, sampleID,position,chr,strand)
-            if(!identical(multihitPositions, multihitpositions.from.db)) {
-                save.image("debug.rdata")
-                stop("multihitPositions, multihitpositions.from.db not identical")
-            }
             
             ## load table multihitlengths
-            stopifnot(dbGetQuery(dbConn, "SELECT 1")==1)
             message("Loading multihitlengths: ", nrow(multihitLengths), " entries")
             stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
-            ## check loaded multihitlengths
-            sql <- sprintf("SELECT * FROM multihitlengths WHERE multihitID>=%s AND multihitID<=%s",
-                           range(multihitPositions$multihitID)[1],
-                           range(multihitPositions$multihitID)[2])
-            multihitlengths.from.db <- suppressWarnings( dbGetQuery(dbConn, sql) )
-            multihitlengths.from.db$multihitID <- as(multihitlengths.from.db$multihitID, "integer")
-            multihitlengths.from.db$length <- as(multihitlengths.from.db$length, "integer")
-            multihitlengths.from.db$count <- as(multihitlengths.from.db$count, "integer")
-            
-            multihitlengths.from.db <- plyr::arrange(multihitlengths.from.db, multihitID, length, count)
-            multihitLengths <- plyr::arrange(multihitLengths, multihitID, length, count)
-            if(!identical(multihitLengths, multihitlengths.from.db)) {
-                save.image("debug.rdata")
-                stop("multihitLengths, multihitlengths.from.db not identical")
-            }
-            
-            newMaxMultihitID <- as.integer(suppressWarnings(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;")))
-            stopifnot(newMaxMultihitID == currentMaxMultihitID + length(unique(multihitPositions$multihitID)))
+            newMaxMultihitID = currentMaxMultihitID + length(unique(multihitPositions$multihitID))
             currentMaxMultihitID <- newMaxMultihitID  
         }
     }
 }
+
+dbGetQuery(dbConn, "COMMIT;")
+
+check_write_table_samples(dbConn, metadata)
 
 dbDiscon <- dbDisconnect(dbConn)
 
