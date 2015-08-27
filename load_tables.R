@@ -2,7 +2,7 @@ write_table_samples <- function(dbConn, metadata) {
     ## Get max sampleID, and start from max+1
     currentMaxSampleID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;"))
     if(is.na(currentMaxSampleID)) { # empty DB
-        currentMaxSampleID<-0
+        currentMaxSampleID<-10000
     }
 
     ## load table samples

@@ -68,13 +68,13 @@ metadata <- write_table_samples(dbConn, metadata)
 ## Get max siteID, and start from max+1
 currentMaxSiteID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;"))
 if(is.na(currentMaxSiteID)) { 
-    currentMaxSiteID<-0
+    currentMaxSiteID<-100000000
 }
 
 ## Get max MultihitID, and start from max+1
 currentMaxMultihitID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;"))
 if(is.na(currentMaxMultihitID)) {
-    currentMaxMultihitID<-0
+    currentMaxMultihitID<-100000000
 }
 
 ## process by sample and upload to sites, pcrbreakpoints, multihitpositions, multihitlengths
@@ -179,6 +179,7 @@ for(i in seq(nrow(metadata))){
     }
 }
 
+message("\nCOMMIT\n")
 dbGetQuery(dbConn, "COMMIT;")
 
 check_write_table_samples(dbConn, metadata)
