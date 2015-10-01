@@ -67,6 +67,11 @@ dbConn <- dbConnect(MySQL(), group=args$sites_group)
 read_conn <- create_src_mysql(dbConn)
 
 ## check if sampleName and refGenome combination already in database
+## t=data.frame(sampleName=c("GTSP9999-1",
+##                  "UninfectedControls-150929-1",
+##                  "NoTemplateControls-150929-4"),
+##              refGenome="hg18")
+## setNameExists(t, read_conn)
 setNameExists <- function(meta=metadata, conn=read_conn) {
     stopifnot(all( c("sampleName", "refGenome") %in% colnames(meta) ))
     df <- collect(tbl(conn, "samples"))
