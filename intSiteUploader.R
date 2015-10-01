@@ -1,33 +1,53 @@
-library(RMySQL, quietly=TRUE, verbose=FALSE)
-library(dplyr, quietly=TRUE, verbose=FALSE)
-
-codeDir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
-
-source(file.path(codeDir, "utils.R"))
-source(file.path(codeDir, "load_tables.R"))
-
-check_presence_packages()
 options(stringsAsFactors=F)
+
+#' set all argumentgs for the script
+#' @return list of argumentgs
+#' @example set_args()
+#'          set_args(c("~", "-g=test"))
+#' Rscript ~/intSiteUploader/intSiteUploader.R 
+set_args <- function(...) {
+    ## arguments from command line
+    suppressMessages(library(argparse))
+    
+    ## code dir past to Rscript
+    codeDir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
+    if( length(codeDir)!=1 ) codeDir <- list.files(path="~", pattern="intSiteUploader$", recursive=TRUE, include.dirs=TRUE, full.names=TRUE)
+    stopifnot(file.exists(file.path(codeDir, "intSiteUploader.R")))
+    stopifnot(file.exists(file.path(codeDir, "integration_site_schema.sql")))
+    
+    parser <- ArgumentParser(description="intSiteUploader")
+    parser$add_argument("workDir", nargs='?',
+                        default='.')
+    parser$add_argument("-g", "--sites_group",
+                        default="intsites_miseq",
+                        help="group to use from ~/.my.cnf for uploading integration sites to db")
+    parser$add_argument("-c", "--codeDir",
+                        default=codeDir,
+                        help="directory of code")
+    args <- parser$parse_args(...)
+    
+    args$workDir <- normalizePath(args$workDir, mustWork=TRUE)
+    
+    return(args)
+}
+##set_args()
+args <- set_args()
+print(args)
 
 ## check if file exist and permission .my.cnf 
 stopifnot(file.exists("~/.my.cnf"))
 stopifnot(file.info("~/.my.cnf")$mode == as.octmode("600"))
 
-check_presence_command_line_tools()
+libs <- c("dplyr", "RMySQL", "intSiteRetriever", "stats", "GenomicRanges",
+          "BiocGenerics", "parallel", "IRanges", "GenomeInfoDb")
+null <- suppressMessages(sapply(libs, library, character.only=TRUE))
 
-## working directory (i.e. primary analysis directory) is passed in via command line
-# and group for MySQL server
-args <- commandArgs(trailingOnly=TRUE)
-workingDir <- args[1]
-mysql_group <- "intsites_miseq"
-if ( ! is.na(args[2])) {
-    mysql_group <- args[2]
-} 
-if( interactive() | is.na(workingDir) ) workingDir <- "."
-stopifnot(!is.na(workingDir))
-workingDir <- normalizePath(workingDir, mustWork=TRUE)
-setwd(workingDir)
-message("Changed to directory: ", workingDir)
+source(file.path(args$codeDir, "utils.R"))
+source(file.path(args$codeDir, "load_tables.R"))
+
+
+message("Changed to directory: ", args$workDir)
+setwd(args$workDir)
 
 ## get miseqid
 miseqid <- unique(readLines("miseqid.txt"))
@@ -42,20 +62,33 @@ names(metadata) <- c("sampleName", "gender", "refGenome")
 
 ## initialize connection to database
 ## ~/.my.cnf must be present
-dbConn <- dbConnect(MySQL(), group=mysql_group) 
-
-## stop if any sample is already loaded
+null <- sapply(dbListConnections(MySQL()), dbDisconnect)
+dbConn <- dbConnect(MySQL(), group=args$sites_group) 
 read_conn <- create_src_mysql(dbConn)
-is.loaded <- setNameExists(select(metadata, sampleName, refGenome), read_conn)
-if(any(is.loaded)) message(
-    paste0("Sets already in the database: ",
-           paste(metadata[is.loaded, ], collapse="\n")))
 
-if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) {
-    stop("GTSP sample already loaded, delete from the database or leave them alone")
+## check if sampleName and refGenome combination already in database
+setNameExists <- function(meta=metadata, conn=read_conn) {
+    stopifnot(all( c("sampleName", "refGenome") %in% colnames(meta) ))
+    df <- collect(tbl(conn, "samples"))
+    load <- gsub("\\s", "", paste0(meta$sampleName, meta$refGenome))
+    inDb <- gsub("\\s", "", paste0(df$sampleName, df$refGenome))
+    return( load %in% inDb )
+}
+is.loaded <- setNameExists(metadata, read_conn)
+
+if( any(is.loaded) ) {
+    message("The following data sets are already in database")
+    print(read_conn)
+    write.table(metadata[is.loaded,], "", sep = "\t", row.names=FALSE, quote=FALSE)
+    
+    message("\nThe following samples are new to the database")
+    write.table(metadata[!is.loaded,], "", sep = "\t", row.names=FALSE, quote=FALSE)
+    stop()
 }
 
-metadata <- subset(metadata, ! is.loaded)
+
+##metadata <- subset(metadata, ! is.loaded)
+##metadata <- metadata[ ! is.loaded, ]
 if (nrow(metadata) == 0) {
     message("All samples are already in the DB. Nothing is pushed into DB.")
     q()
