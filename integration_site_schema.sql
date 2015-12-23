@@ -26,7 +26,7 @@ CREATE TABLE sites (
     FOREIGN KEY (sampleID) REFERENCES samples(sampleID)
 );
 
-CREATE TABLE `pcrbreakpoints` (
+CREATE TABLE pcrbreakpoints (
     siteID int NOT NULL,
     breakpoint int NOT NULL,
     count int NOT NULL,
