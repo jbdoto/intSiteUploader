@@ -1,83 +1,121 @@
 library(RMySQL, quietly=TRUE, verbose=FALSE)
 library(dplyr, quietly=TRUE, verbose=FALSE)
+library(DBI, quietly=TRUE, verbose=FALSE)
+library(yaml, quietly=TRUE, verbose=FALSE)
+options(stringsAsFactors=F, useFancyQuotes=F)
 
 codeDir <- dirname(sub("--file=", "", grep("--file=", commandArgs(trailingOnly=FALSE), value=T)))
 
-source(file.path(codeDir, "utils.R"))
-source(file.path(codeDir, "load_tables.R"))
-
-check_presence_packages()
-options(stringsAsFactors=F)
-
-## check if file exist and permission .my.cnf 
-stopifnot(file.exists("~/.my.cnf"))
-stopifnot(file.info("~/.my.cnf")$mode == as.octmode("600"))
-
-check_presence_command_line_tools()
-
-## working directory (i.e. primary analysis directory) is passed in via command line
-# and group for MySQL server
+# Primary analysis directory is passed in via command line.
 args <- commandArgs(trailingOnly=TRUE)
 workingDir <- args[1]
-mysql_group <- "intsites_miseq"
-if ( ! is.na(args[2])) {
-    mysql_group <- args[2]
-} 
-if( interactive() | is.na(workingDir) ) workingDir <- "."
-stopifnot(!is.na(workingDir))
+
+
+# Determine analysis directory and change into it.
+if( is.na(workingDir) ) workingDir <- "."
 workingDir <- normalizePath(workingDir, mustWork=TRUE)
 setwd(workingDir)
 message("Changed to directory: ", workingDir)
 
-## get miseqid
-miseqid <- unique(readLines("miseqid.txt"))
-stopifnot(length(miseqid)==1)
-message("miseqid: ", miseqid)
+# Load configuration file
+config <<- yaml.load_file(paste0(workingDir, '/INSPIIRED.yml'))
 
-## get sample information
+# Get the sample information.
 stopifnot(file.exists("completeMetadata.RData"))
 metadata <- get(load('completeMetadata.RData'))
 metadata <- subset(metadata, select=c("alias", "gender", "refGenome"))
 names(metadata) <- c("sampleName", "gender", "refGenome")
 
-## initialize connection to database
-## ~/.my.cnf must be present
-dbConn <- dbConnect(MySQL(), group=mysql_group) 
 
-## stop if any sample is already loaded
-read_conn <- create_src_mysql(dbConn)
-is.loaded <- setNameExists(select(metadata, sampleName, refGenome), read_conn)
-if(any(is.loaded)) message(
-    paste0("Sets already in the database: ",
-           paste(metadata[is.loaded, ], collapse="\n")))
-
-if( any(grepl("^GTSP", metadata$sampleName[is.loaded], ignore.case=TRUE)) ) {
-    stop("GTSP sample already loaded, delete from the database or leave them alone")
+# Connect to my database
+if (config$UseMySQL){
+   stopifnot(file.exists("~/.my.cnf"))
+   stopifnot(file.info("~/.my.cnf")$mode == as.octmode("600"))
+   dbConn <- dbConnect(MySQL(), group=config$MySQLconnectionGroup)
+}else{
+   dbConn <- dbConnect(RSQLite::SQLite(), dbname=config$SQLiteIntSiteCallerDB)
 }
 
-metadata <- subset(metadata, ! is.loaded)
-if (nrow(metadata) == 0) {
-    message("All samples are already in the DB. Nothing is pushed into DB.")
+samples <- dbGetQuery(dbConn, "select * from samples")
+
+dupRunsTest <- function(x, samples=samples){
+  t <- samples[samples$sampleName==x[1] & samples$refGenome==x[3],]
+  if (nrow(t)>0) x[1]
+}
+
+# Test is a character vector with names of samples already in the sample database table
+test <- apply(metadata, 1, dupRunsTest, samples=samples)
+
+if ((nrow(metadata)) == (length(test))){
+    message('All of the samples have already been uploaded to the data database')
     q()
 }
-metadata$miseqid <- miseqid
 
-dbGetQuery(dbConn, "START TRANSACTION;")
+if ( length(test) > 0 ){
+  message('The following samples are already in the database:')
+  for (i in names(test)) {
+     message(i)
+  } 
+  q()
+}
+
+
+# Add a miseq column to the metadata table
+stopifnot(!is.null(config$runId))
+metadata$miseqid <- config$runId
+
+
+insertSQL <- function (dbConn, x, colNames, table){
+   fields <- paste(colNames, collapse=", ")
+   values <- paste(sQuote(x), collapse=", ")
+   q <- paste0('insert into ', table, ' (', fields, ') values (',  values, ')')
+   r <- dbSendQuery(dbConn, q)
+}
+
+
+write_table_samples <- function(dbConn, metadata) {
+   
+    currentMaxSampleID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(sampleID) AS sampleID FROM samples;"))
+
+    if(is.na(currentMaxSampleID)) currentMaxSampleID <- 10000  # empty database condition
+
+    # Create a column of sequence ids and append itto the metadata table.
+    metadata$sampleID <- seq(nrow(metadata))+currentMaxSampleID
+
+    null <- apply(metadata, 1, insertSQL, dbConn=dbConn, colNames=colnames(metadata), table='samples')
+    metadata
+}
+
+check_write_table_samples <- function(dbConn, metadata) {
+    sample.tab <- suppressWarnings(dbReadTable(dbConn, "samples"))
+    merged.tab <- merge(metadata, sample.tab, by=c("sampleName", "refGenome"), all.x=TRUE)
+
+    if( !all(merged.tab$sampleID.x==merged.tab$sampleID.y) ) {
+        message("Sample ID error, check the following table")
+        print(merged.tab)
+    }
+}
+
+
+# SQLite is autocommit by deafult, no need to work with transaction sessions.
+if (config$UseMySQL) dbGetQuery(dbConn, "START TRANSACTION;")
+
 metadata <- write_table_samples(dbConn, metadata)
 
-## Get max siteID, and start from max+1
+
+# Get max siteID, and start from max+1
 currentMaxSiteID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(siteID) AS siteID FROM sites;"))
 if(is.na(currentMaxSiteID)) { 
     currentMaxSiteID<-100000000
 }
 
-## Get max MultihitID, and start from max+1
+# Get max MultihitID, and start from max+1
 currentMaxMultihitID <- as.integer(dbGetQuery(dbConn, "SELECT MAX(multihitID) AS multihitID FROM multihitpositions;"))
 if(is.na(currentMaxMultihitID)) {
     currentMaxMultihitID<-100000000
 }
 
-## process by sample and upload to sites, pcrbreakpoints, multihitpositions, multihitlengths
+# process by sample and upload to sites, pcrbreakpoints, multihitpositions, multihitlengths
 for(i in seq(nrow(metadata))){
     file <- metadata[i,"sampleName"]
     message("\nProcessing: ", file)
@@ -115,19 +153,21 @@ for(i in seq(nrow(metadata))){
                                          "breakpoint"=sapply(condensedPCRBreakpoints, "[[", 2),
                                          "count"=runLength(Rle(match(pcrBreakpoints, unique(pcrBreakpoints)))))
             
-            ## change to the right class as database
+            # change to the right class as database
             pcrBreakpoints$siteID <- as(pcrBreakpoints$siteID, "integer")
             pcrBreakpoints$breakpoint <- as(pcrBreakpoints$breakpoint, "integer")
             pcrBreakpoints$count <- as(pcrBreakpoints$count, "integer")
             
-            ## load table sites            
+            # load table sites            
             message("Loading sites: ", nrow(sites), " entries")
-            stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
-            
-            ## load table pcrbreakpoints
+            ### stopifnot( dbWriteTable(dbConn, "sites", sites, append=T, row.names=F) )
+            null <- apply(sites, 1, insertSQL, dbConn=dbConn, colNames=colnames(sites), table='sites')            
+
+            # load table pcrbreakpoints
             message("Loading pcrbreakpoints: ", nrow(pcrBreakpoints), " entries")
-            stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
-            
+            ### stopifnot( dbWriteTable(dbConn, "pcrbreakpoints", pcrBreakpoints, append=T, row.names=F) )
+            null <- apply(pcrBreakpoints, 1, insertSQL, dbConn=dbConn, colNames=colnames(pcrBreakpoints), table='pcrbreakpoints')            
+
             newMaxSiteID = currentMaxSiteID + nrow(sites)
             currentMaxSiteID <- newMaxSiteID
         }
@@ -148,7 +188,7 @@ for(i in seq(nrow(metadata))){
                 "chr"=as.character(seqnames(unlist(multihitPositions))),
                 "strand"=as.character(strand(unlist(multihitPositions))) )
             
-            ## change to the right class as database
+            # change to the right class as database
             multihitPositions$multihitID <- as(multihitPositions$multihitID, "integer")
             multihitPositions$sampleID <- as(multihitPositions$sampleID, "integer")
             multihitPositions$position <- as(multihitPositions$position, "integer")
@@ -161,28 +201,28 @@ for(i in seq(nrow(metadata))){
                 "length"=as.integer(as.character(do.call(rbind, multihitLengths)$Var1)),
                 "count"=do.call(rbind, multihitLengths)$Freq )
             
-            ## change to the right class as database
+            # change to the right class as database
             multihitLengths$multihitID <- as(multihitLengths$multihitID, "integer")
             multihitLengths$length <- as(multihitLengths$length, "integer")
             multihitLengths$count <- as(multihitLengths$count, "integer")
             
-            ## load table multihitpositions
+            # load table multihitpositions
             message("Loading multihitpositions:", nrow(multihitPositions), " entries")
-            stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
-            
-            ## load table multihitlengths
+            ### stopifnot( dbWriteTable(dbConn, "multihitpositions", multihitPositions, append=T, row.names=F) )
+            null <- apply(multihitPositions, 1, insertSQL, dbConn=dbConn, colNames=colnames(multihitPositions), table='multihitPositions')            
+
+            # load table multihitlengths
             message("Loading multihitlengths: ", nrow(multihitLengths), " entries")
-            stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
+            ### stopifnot( dbWriteTable(dbConn, "multihitlengths", multihitLengths, append=T, row.names=F) )
+            null <- apply(multihitLengths, 1, insertSQL, dbConn=dbConn, colNames=colnames(multihitLengths), table='multihitLengths')
+
             newMaxMultihitID = currentMaxMultihitID + length(unique(multihitPositions$multihitID))
             currentMaxMultihitID <- newMaxMultihitID  
         }
     }
 }
 
-message("\nCOMMIT\n")
-dbGetQuery(dbConn, "COMMIT;")
+if (config$UseMySQL) dbGetQuery(dbConn, "COMMIT;")
 
 check_write_table_samples(dbConn, metadata)
-
 dbDiscon <- dbDisconnect(dbConn)
-
