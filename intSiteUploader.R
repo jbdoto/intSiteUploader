@@ -28,13 +28,13 @@ names(metadata) <- c("sampleName", "gender", "refGenome")
 
 
 # Connect to my database
-if (config$UseMySQL){
+if (config$dataBase == 'mysql'){
    stopifnot(file.exists("~/.my.cnf"))
    stopifnot(file.info("~/.my.cnf")$mode == as.octmode("600"))
-   dbConn <- dbConnect(MySQL(), group=config$MySQLconnectionGroup)
-}else{
-   dbConn <- dbConnect(RSQLite::SQLite(), dbname=config$SQLiteIntSiteCallerDB)
-}
+   dbConn <- dbConnect(MySQL(), group=config$mysqlConnectionGroup)
+}else if (config$dataBase == 'sqlite'){
+   dbConn <- dbConnect(RSQLite::SQLite(), dbname=config$sqliteIntSitesDB)
+}else{ stop('The database connection could not be set.') }
 
 samples <- dbGetQuery(dbConn, "select * from samples")
 
@@ -98,7 +98,7 @@ check_write_table_samples <- function(dbConn, metadata) {
 
 
 # SQLite is autocommit by deafult, no need to work with transaction sessions.
-if (config$UseMySQL) dbGetQuery(dbConn, "START TRANSACTION;")
+if (config$dataBase == 'mysql') dbGetQuery(dbConn, "START TRANSACTION;")
 
 metadata <- write_table_samples(dbConn, metadata)
 
@@ -222,7 +222,7 @@ for(i in seq(nrow(metadata))){
     }
 }
 
-if (config$UseMySQL) dbGetQuery(dbConn, "COMMIT;")
+if (config$dataBase == 'mysql') dbGetQuery(dbConn, "COMMIT;")
 
 check_write_table_samples(dbConn, metadata)
 dbDiscon <- dbDisconnect(dbConn)
