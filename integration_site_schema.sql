@@ -12,7 +12,10 @@ CREATE TABLE samples (
     gender char(1) NOT NULL,
     miseqid varchar(255),
     PRIMARY KEY (sampleID),
-    CONSTRAINT uniq_samples UNIQUE (sampleName, refGenome)
+    CONSTRAINT uniq_samples UNIQUE (sampleName, refGenome),
+    CONSTRAINT non_empty_ref CHECK (LENGTH(refGenome) >= 1),
+    CONSTRAINT non_empty_sample CHECK (LENGTH(sampleName) >= 1),
+    CONSTRAINT f_for_female_m_for_male CHECK(gender IN ('f', 'm'))
 );
 
 -- unique hits
@@ -23,7 +26,8 @@ CREATE TABLE sites (
     chr varchar(255) NOT NULL,
     strand char(1) NOT NULL,
     PRIMARY KEY (siteID),
-    FOREIGN KEY (sampleID) REFERENCES samples(sampleID)
+    FOREIGN KEY (sampleID) REFERENCES samples(sampleID),
+    CONSTRAINT non_empty_chr CHECK (LENGTH(chr) >= 1)
 );
 
 CREATE TABLE pcrbreakpoints (
@@ -42,7 +46,8 @@ CREATE TABLE multihitpositions (
     chr varchar(255) NOT NULL,
     strand char(1) NOT NULL,
     PRIMARY KEY (multihitID, position, chr, strand),
-    FOREIGN KEY (sampleID) REFERENCES samples(sampleID)
+    FOREIGN KEY (sampleID) REFERENCES samples(sampleID),
+    CONSTRAINT non_empty_chr CHECK (LENGTH(chr) >= 1)
 );
 
 CREATE TABLE multihitlengths (
