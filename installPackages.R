@@ -1,0 +1,1 @@
+install.packages('RCurl', repos='http://www.omegahat.net/R')
