@@ -1,0 +1,16 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: IntSiteUploaderECRRepositoryCreate
+
+Resources:
+  IntSiteUploaderECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: intsiteuploader
+      Tags:
+        - Key: "Name"
+          Value: "intsiteuploader"
+
+Outputs:
+  Arn:
+    Value: !GetAtt IntSiteUploaderECRRepository.Arn

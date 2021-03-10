@@ -78,3 +78,8 @@ sqllite version of db can be created by:
 ```
 sqlite3 db.sqlite3 < integration_site_schema.sql
 ```
+
+## Build Info
+
+The easiest way to build and push this container is to run `./build.sh` you may need to adjust the profile to match
+your personal settings.
